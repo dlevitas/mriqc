@@ -1,5 +1,5 @@
 # Use Ubuntu 16.04 LTS
-FROM ubuntu:xenial-20161213
+FROM ubuntu:xenial-20200114
 
 # Pre-cache neurodebian key
 COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
@@ -138,18 +138,19 @@ RUN python -c "from matplotlib import font_manager" && \
 
 # Installing dev requirements (packages that are not in pypi)
 WORKDIR /src/
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Precaching atlases
-RUN python -c "from templateflow import api as tfapi; \
+COPY setup.cfg setup.cfg
+RUN pip install --no-cache-dir "$( grep templateflow setup.cfg | xargs )" && \
+    python -c "from templateflow import api as tfapi; \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='T1w', desc=None); \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='mask',\
                          desc=['brain', 'head']); \
                tfapi.get('MNI152NLin2009cAsym', resolution=1, suffix='dseg', desc='carpet'); \
                tfapi.get('MNI152NLin2009cAsym', resolution=1, suffix='probseg',\
                          label=['CSF', 'GM', 'WM']);\
-               tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='boldref')"
+               tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='boldref')" && \
+    rm setup.cfg
 
 # Installing MRIQC
 COPY . /src/mriqc

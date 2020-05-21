@@ -1,9 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-# pylint: disable=no-member
-
 r"""
 
 Measures based on noise measurements
@@ -45,6 +41,7 @@ Measures based on noise measurements
   of a :math:`\chi^2` distribution on the air mask,
   once the artifactual intensities detected for computing
   the :abbr:`QI1 (quality index 1)` index have been removed [Mortamet2009]_.
+  Lower values are better.
 
 Measures based on information theory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -75,8 +72,9 @@ Measures targeting specific artifacts
 .. _iqms_inu:
 
 - **inu_\*** (*nipype interface to N4ITK*): summary statistics (max, min and median)
-  of the :abbr:`INU (intensity non-uniformity)` field as extracted by the N4ITK algorithm
-  [Tustison2010]_. Values closer to 1.0 are better.
+  of the :abbr:`INU (intensity non-uniformity)` field (bias field) as extracted
+  by the N4ITK algorithm [Tustison2010]_. Values closer to 1.0 are better, values
+  further from zero indicate greater RF field inhomogeneity.
 
 .. _iqms_qi:
 
@@ -107,8 +105,8 @@ Other measures
 
 - **fwhm** (*nipype interface to AFNI*): The :abbr:`FWHM (full-width half maximum)` of
   the spatial distribution of the image intensity values in units of voxels [Forman1995]_.
-  Lower values are better. Uses the gaussian width estimator filter implemented in
-  AFNI's ``3dFWHMx``:
+  Lower values are better, higher values indicate a blurrier image. Uses the gaussian
+  width estimator filter implemented in AFNI's ``3dFWHMx``:
 
   .. math ::
 
@@ -141,7 +139,8 @@ Other measures
 
 - **overlap_\*_\***:
   The overlap of the :abbr:`TPMs (tissue probability maps)` estimated from the image and
-  the corresponding maps from the ICBM nonlinear-asymmetric 2009c template.
+  the corresponding maps from the ICBM nonlinear-asymmetric 2009c template. Higher
+  values are better.
 
   .. math ::
 
@@ -194,12 +193,9 @@ import numpy as np
 import scipy.ndimage as nd
 from scipy.stats import kurtosis  # pylint: disable=E0611
 
-from io import open  # pylint: disable=W0622
-from builtins import zip, range  # pylint: disable=W0622
-from six import string_types
 
 DIETRICH_FACTOR = 1.0 / sqrt(2 / (4 - pi))
-FSL_FAST_LABELS = {'csf': 1, 'gm': 2, 'wm': 3, 'bg': 0}
+FSL_FAST_LABELS = {"csf": 1, "gm": 2, "wm": 3, "bg": 0}
 PY3 = version_info[0] > 2
 
 
@@ -247,8 +243,11 @@ def snr_dietrich(mu_fg, sigma_air):
 
     """
     if sigma_air < 1.0:
-        from .. import MRIQC_LOG
-        MRIQC_LOG.warning('SNRd - background sigma is too small (%f)', sigma_air)
+        from .. import config
+
+        config.loggers.interface.warning(
+            f"SNRd - background sigma is too small ({sigma_air})"
+        )
         sigma_air += 1.0
 
     return float(DIETRICH_FACTOR * mu_fg / sigma_air)
@@ -366,15 +365,19 @@ def efc(img, framemask=None):
     n_vox = np.sum(1 - framemask)
     # Calculate the maximum value of the EFC (which occurs any time all
     # voxels have the same value)
-    efc_max = 1.0 * n_vox * (1.0 / np.sqrt(n_vox)) * \
-        np.log(1.0 / np.sqrt(n_vox))
+    efc_max = 1.0 * n_vox * (1.0 / np.sqrt(n_vox)) * np.log(1.0 / np.sqrt(n_vox))
 
     # Calculate the total image energy
-    b_max = np.sqrt((img[framemask == 0]**2).sum())
+    b_max = np.sqrt((img[framemask == 0] ** 2).sum())
 
     # Calculate EFC (add 1e-16 to the image data to keep log happy)
-    return float((1.0 / efc_max) * np.sum((img[framemask == 0] / b_max) * np.log(
-        (img[framemask == 0] + 1e-16) / b_max)))
+    return float(
+        (1.0 / efc_max)
+        * np.sum(
+            (img[framemask == 0] / b_max)
+            * np.log((img[framemask == 0] + 1e-16) / b_max)
+        )
+    )
 
 
 def wm2max(img, mu_wm):
@@ -443,21 +446,21 @@ def art_qi2(img, airmask, min_voxels=int(1e3), max_voxels=int(3e5), save_plot=Tr
     data = data[data > 0]
 
     # Write out figure of the fitting
-    out_file = op.abspath('error.svg')
-    with open(out_file, 'w') as ofh:
-        ofh.write('<p>Background noise fitting could not be plotted.</p>')
+    out_file = op.abspath("error.svg")
+    with open(out_file, "w") as ofh:
+        ofh.write("<p>Background noise fitting could not be plotted.</p>")
 
     if len(data) < min_voxels:
         return 0.0, out_file
 
-    modelx = data if len(data) < max_voxels else np.random.choice(
-        data, size=max_voxels)
+    modelx = data if len(data) < max_voxels else np.random.choice(data, size=max_voxels)
 
     x_grid = np.linspace(0.0, np.percentile(data, 99), 1000)
 
     # Estimate data pdf with KDE on a random subsample
-    kde_skl = KernelDensity(bandwidth=0.05 * np.percentile(data, 98),
-                            kernel='gaussian').fit(modelx[:, np.newaxis])
+    kde_skl = KernelDensity(
+        bandwidth=0.05 * np.percentile(data, 98), kernel="gaussian"
+    ).fit(modelx[:, np.newaxis])
     kde = np.exp(kde_skl.score_samples(x_grid[:, np.newaxis]))
 
     # Find cutoff
@@ -517,14 +520,16 @@ def rpve(pvms, seg):
         if lid == 0:
             continue
         pvmap = pvms[lid - 1]
-        pvmap[pvmap < 0.] = 0.
-        pvmap[pvmap >= 1.] = 1.
+        pvmap[pvmap < 0.0] = 0.0
+        pvmap[pvmap >= 1.0] = 1.0
         totalvol = np.sum(pvmap > 0.0)
         upth = np.percentile(pvmap[pvmap > 0], 98)
         loth = np.percentile(pvmap[pvmap > 0], 2)
         pvmap[pvmap < loth] = 0
         pvmap[pvmap > upth] = 0
-        pvfs[k] = (pvmap[pvmap > 0.5].sum() + (1.0 - pvmap[pvmap <= 0.5]).sum()) / totalvol
+        pvfs[k] = (
+            pvmap[pvmap > 0.5].sum() + (1.0 - pvmap[pvmap <= 0.5]).sum()
+        ) / totalvol
     return {k: float(v) for k, v in list(pvfs.items())}
 
 
@@ -547,7 +552,7 @@ def summary_stats(img, pvms, airmask=None, erode=True):
 
 
     """
-    from .. import MRIQC_LOG
+    from .. import config
     from statsmodels.robust.scale import mad
 
     # Check type of input masks
@@ -558,15 +563,16 @@ def summary_stats(img, pvms, airmask=None, erode=True):
     elif dims == 3:
         stats_pvms = [np.ones_like(pvms) - pvms, pvms]
     else:
-        raise RuntimeError('Incorrect image dimensions ({0:d})'.format(
-            np.array(pvms).ndim))
+        raise RuntimeError(
+            "Incorrect image dimensions ({0:d})".format(np.array(pvms).ndim)
+        )
 
     if airmask is not None:
         stats_pvms[0] = airmask
 
     labels = list(FSL_FAST_LABELS.items())
     if len(stats_pvms) == 2:
-        labels = list(zip(['bg', 'fg'], list(range(2))))
+        labels = list(zip(["bg", "fg"], list(range(2))))
 
     output = {}
     for k, lid in labels:
@@ -575,45 +581,48 @@ def summary_stats(img, pvms, airmask=None, erode=True):
 
         if erode:
             struc = nd.generate_binary_structure(3, 2)
-            mask = nd.binary_erosion(
-                mask, structure=struc).astype(np.uint8)
+            mask = nd.binary_erosion(mask, structure=struc).astype(np.uint8)
 
         nvox = float(mask.sum())
         if nvox < 1e3:
-            MRIQC_LOG.warning('calculating summary stats of label "%s" in a very small '
-                              'mask (%d voxels)', k, int(nvox))
-            if k == 'bg':
+            config.loggers.interface.warning(
+                'calculating summary stats of label "%s" in a very small '
+                "mask (%d voxels)",
+                k,
+                int(nvox),
+            )
+            if k == "bg":
                 continue
 
         output[k] = {
-            'mean': float(img[mask == 1].mean()),
-            'stdv': float(img[mask == 1].std()),
-            'median': float(np.median(img[mask == 1])),
-            'mad': float(mad(img[mask == 1])),
-            'p95': float(np.percentile(img[mask == 1], 95)),
-            'p05': float(np.percentile(img[mask == 1], 5)),
-            'k': float(kurtosis(img[mask == 1])),
-            'n': nvox,
+            "mean": float(img[mask == 1].mean()),
+            "stdv": float(img[mask == 1].std()),
+            "median": float(np.median(img[mask == 1])),
+            "mad": float(mad(img[mask == 1])),
+            "p95": float(np.percentile(img[mask == 1], 95)),
+            "p05": float(np.percentile(img[mask == 1], 5)),
+            "k": float(kurtosis(img[mask == 1])),
+            "n": nvox,
         }
 
-    if 'bg' not in output:
-        output['bg'] = {
-            'mean': 0.,
-            'median': 0.,
-            'p95': 0.,
-            'p05': 0.,
-            'k': 0.,
-            'stdv': sqrt(sum(val['stdv']**2
-                             for _, val in list(output.items()))),
-            'mad': sqrt(sum(val['mad']**2
-                            for _, val in list(output.items()))),
-            'n': sum(val['n'] for _, val in list(output.items()))
+    if "bg" not in output:
+        output["bg"] = {
+            "mean": 0.0,
+            "median": 0.0,
+            "p95": 0.0,
+            "p05": 0.0,
+            "k": 0.0,
+            "stdv": sqrt(sum(val["stdv"] ** 2 for _, val in list(output.items()))),
+            "mad": sqrt(sum(val["mad"] ** 2 for _, val in list(output.items()))),
+            "n": sum(val["n"] for _, val in list(output.items())),
         }
 
-    if 'bg' in output and output['bg']['mad'] == 0.0 and output['bg']['stdv'] > 1.0:
-        MRIQC_LOG.warning('estimated MAD in the background was too small ('
-                          'MAD=%f)', output['bg']['mad'])
-        output['bg']['mad'] = output['bg']['stdv'] / DIETRICH_FACTOR
+    if "bg" in output and output["bg"]["mad"] == 0.0 and output["bg"]["stdv"] > 1.0:
+        config.loggers.interface.warning(
+            "estimated MAD in the background was too small (MAD=%f)",
+            output["bg"]["mad"],
+        )
+        output["bg"]["mad"] = output["bg"]["stdv"] / DIETRICH_FACTOR
     return output
 
 
@@ -621,14 +630,14 @@ def _prepare_mask(mask, label, erode=True):
     fgmask = mask.copy()
 
     if np.issubdtype(fgmask.dtype, np.integer):
-        if isinstance(label, string_types):
+        if isinstance(label, (str, bytes)):
             label = FSL_FAST_LABELS[label]
 
         fgmask[fgmask != label] = 0
         fgmask[fgmask == label] = 1
     else:
-        fgmask[fgmask > .95] = 1.
-        fgmask[fgmask < 1.] = 0
+        fgmask[fgmask > 0.95] = 1.0
+        fgmask[fgmask < 1.0] = 0
 
     if erode:
         # Create a structural element to be used in an opening operation.

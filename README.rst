@@ -6,12 +6,11 @@ MRIQC is developed by `the Poldrack Lab at Stanford University
 Neuroscience (CRN) <http://reproducibility.stanford.edu>`_, as well as
 for open-source software distribution.
 
-.. image:: http://bids.neuroimaging.io/openneuro_badge.svg
-  :target: https://openneuro.org
-  :alt: Available in OpenNeuro!
-
 .. image:: https://circleci.com/gh/poldracklab/mriqc/tree/master.svg?style=svg
   :target: https://circleci.com/gh/poldracklab/mriqc/tree/master
+  
+.. image:: https://travis-ci.org/poldracklab/mriqc.svg?branch=master
+  :target: https://travis-ci.org/poldracklab/mriqc
 
 .. image:: https://readthedocs.org/projects/mriqc/badge/?version=latest
   :target: http://mriqc.readthedocs.io/en/latest/?badge=latest
@@ -39,7 +38,6 @@ for open-source software distribution.
 
 About
 -----
-
 MRIQC extracts no-reference IQMs (image quality metrics) from
 structural (T1w and T2w) and functional MRI (magnetic resonance imaging)
 data.
@@ -73,7 +71,6 @@ the CRN. This pipeline derives from, and is heavily influenced by, the
 
 Citation
 --------
-
 .. topic:: **When using MRIQC, please include the following citation:**
 
     Esteban O, Birman D, Schaer M, Koyejo OO, Poldrack RA, Gorgolewski KJ;
@@ -83,7 +80,6 @@ Citation
 
 Support and communication
 -------------------------
-
 The documentation of this project is found here: http://mriqc.readthedocs.io/.
 
 Users can get help using the `mriqc-users google group <https://groups.google.com/forum/#!forum/mriqc-users>`_.
@@ -94,7 +90,6 @@ https://github.com/poldracklab/mriqc/issues.
 
 Authors
 -------
-
 Oscar Esteban, Krzysztof F. Gorgolewski.
 Poldrack Lab, Psychology Department, Stanford University,
 and Center for Reproducible Neuroscience, Stanford University.
@@ -109,7 +104,6 @@ and Center for Reproducible Neuroscience, Stanford University.
 
 License information
 -------------------
-
 We use the 3-clause BSD license; the full license is in the file ``LICENSE`` in
 the ``mriqc`` distribution.
 

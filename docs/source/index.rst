@@ -5,23 +5,14 @@
 
 Welcome to mriqc's documentation!
 =================================
-
-
 .. include:: ../../README.rst
    :start-line: 3
-   :end-line: 39
-
-
-.. tip::
-     Try MRIQC online on `OpenNeuro <https://www.openneuro.org/>`_ - without
-     installation!
-
+   :end-line: 38
 
 .. image :: _static/OHBM2017-poster.png
 
 Contents
 ========
-
 .. toctree::
    :maxdepth: 3
 
@@ -35,16 +26,8 @@ Contents
    classifier
    dsa
 
-
 Indices and tables
 ==================
-
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-
-
-
-
